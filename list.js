@@ -1,39 +1,22 @@
-	<?php
-include("config.php");
-require_once("kontrol.php");
-$opt=$_POST['opt'];
-$lsid=$_POST['lsid'];
-$sharetype=$_POST['lssharetype'];
-$remoteaddress=$_POST['lsremoteaddress'];
-$sharefolder=$_POST['lssharefolder'];
-$user=$_POST['lsuser'];
-$pass=$_POST['lspass'];
-$domain=$_POST['lsdomain'];
-$dbConn = mysql_connect(DB_HOST, DB_USER, DB_PASS);
-if (!$dbConn) die ("Out of service");
-mysql_select_db(DB_DATABASE, $dbConn) or die ("Out of service");
-include("classes/logshares_class.php");
-if($opt=='del')
-{
-  cLogshares::fDeleteFileshareDB($dbConn,$lsid);
+<?php
+$rootUname = $_GET['rootUname'];
+$array = array();
+/* check PHP Safe_Mode is off */
+if (ini_get('safe_mode')) {
+    $array['phpSafeMode'] = '<strong><font class="bad">Fail - php safe mode is on - turn it off before you proceed with the installation</strong></font>br/>';
+} else {
+    $array['phpSafeMode'] = '<strong><font class="Good">Pass - php safe mode is off</strong></font><br/>';
 }
-else if($opt=='add')
-{
-  cLogshares::fAddFileshareDB($dbConn,$sharetype,$remoteaddress,$sharefolder,$user,$pass,$domain);
+/* Test root account details */
+$rootTestCmd1 = 'sudo -S -u ' . $rootUname . ' chmod 0777 /home 2>&1';
+exec($rootTestCmd1, $cmdOutput, $err);
+$homeDirPerms = substr(sprintf('%o', fileperms('/home')), -4);
+if ($homeDirPerms == '0777') {
+    $array['rootDetails'] = '<strong><font class="Good">Pass - root account details are good </strong></font><br/>';
+} else {
+    $array['rootDetails'] = '<strong><font class="bad">The root details provided have not passed: ' . $cmdOutput[0] . '</strong></font><br/>';
 }
-else if($opt=='check')
-{
-  echo cLogshares::fTestFileshare("/mnt/logsource_".$lsid."_".$sharetype);
-}
-else if($opt=='mount')
-{
-  cLogshares::fMountFileshareOnly($dbConn,$lsid,$sharetype);
-  echo cLogshares::fTestFileshare("/mnt/logsource_".$lsid."_".$sharetype);
-}
-
-function fTestFileshare($sharefolder)
-{
-  $output = shell_exec('sudo /opt/cryptolog/scripts/testmountpoint.sh '.$sharefolder);
-  return trim($output);
-}
-?>
+// reset /home dir permissions
+$rootTestCmd2 = 'sudo -S -u ' . $rootUname . ' chmod 0755 /home 2>&1';
+exec($rootTestCmd2, $cmdOutput, $err);
+echo json_encode($array);
